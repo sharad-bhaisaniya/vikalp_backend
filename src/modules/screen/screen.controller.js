@@ -41,6 +41,7 @@ export const createScreen = async (req, res, next) => {
     const username = `Screen${totalScreens + 1}`;
 
     const screen = await Screen.create({
+      ...req.body,
       username,
       screenType,
       password,
@@ -48,7 +49,6 @@ export const createScreen = async (req, res, next) => {
       assignedManagerId,
       assignedRunnerId,
       cityId,
-      ...req.body
     });
 
     res.status(201).json({
