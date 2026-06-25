@@ -36,9 +36,20 @@ export const createScreen = async (req, res, next) => {
 
     const cityId = manager.cityId;
 
-    // Auto-generate username (Screen1, Screen2, etc.)
-    const totalScreens = await Screen.countDocuments();
-    const username = `Screen${totalScreens + 1}`;
+    // Auto-generate username based on the highest existing Screen counter
+    const allScreens = await Screen.find({}, 'username');
+    let maxCounter = 0;
+    
+    allScreens.forEach(s => {
+      if (s.username && s.username.match(/^Screen(\d+)$/i)) {
+        const num = parseInt(s.username.match(/^Screen(\d+)$/i)[1], 10);
+        if (num > maxCounter) {
+          maxCounter = num;
+        }
+      }
+    });
+
+    const username = `Screen${maxCounter + 1}`;
 
     const screen = await Screen.create({
       ...req.body,
