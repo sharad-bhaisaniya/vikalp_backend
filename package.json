@@ -1,0 +1,24 @@
+{
+  "name": "vikalp-promotions-backend",
+  "version": "1.0.0",
+  "description": "Vikalp Promotions - Backend API",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/seeders/superAdmin.seeder.js",
+    "seed:roles": "node src/seeders/rolesPermissions.seeder.js",
+    "seed:all": "node src/seeders/rolesPermissions.seeder.js && node src/seeders/superAdmin.seeder.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.7.2",
+    "multer": "^2.2.0",
+    "razorpay": "^2.9.6",
+    "xlsx": "^0.18.5"
+  }
+}
