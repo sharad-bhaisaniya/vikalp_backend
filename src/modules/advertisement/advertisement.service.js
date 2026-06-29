@@ -50,14 +50,20 @@ class AdvertisementService {
     const seconds_per_day = slotDuration * loopsPerDay; // Total seconds played in a day
     const total_cost = scheduled_dates.length * seconds_per_day * pricePerSecond;
 
+    const totalSlotsPerDay = Math.floor(settings.total_operating_seconds / slotDuration);
+
     for (const date of scheduled_dates) {
-      const existing = await Advertisement.findOne({
+      // Find all active ads for this runner on this date
+      const existingAds = await Advertisement.find({
         runner_id,
         scheduled_dates: date,
         status: "active",
       });
-      if (existing) {
-        throw new Error(`Runner already has a slot booked on ${date}`);
+      
+      const bookedSlotsForDate = existingAds.reduce((sum, ad) => sum + (ad.slots_per_day || 1), 0);
+      
+      if (bookedSlotsForDate >= totalSlotsPerDay) {
+        throw new Error(`Runner has no available slots left on ${date}. Capacity full (${totalSlotsPerDay}/${totalSlotsPerDay}).`);
       }
     }
 
@@ -414,13 +420,17 @@ class AdvertisementService {
     for (const date of dates) {
       const totalBooked = allAds.filter(a => a.scheduled_dates.includes(date))
         .reduce((sum, a) => sum + (a.slots_per_day || 1), 0);
-      const runnerBooked = runnerAds.some(a => a.scheduled_dates.includes(date));
+        
+      const runnerAdsForDate = runnerAds.filter(a => a.scheduled_dates.includes(date));
+      const runnerBookedSlots = runnerAdsForDate.reduce((sum, ad) => sum + (ad.slots_per_day || 1), 0);
+      
+      const runnerCapacityFull = runnerBookedSlots >= totalSlotsPerDay;
 
       result[date] = {
         total_slots: totalSlotsPerDay,
         booked_slots: totalBooked,
         available_slots: Math.max(0, totalSlotsPerDay - totalBooked),
-        runner_already_booked: runnerBooked,
+        runner_already_booked: runnerCapacityFull,
       };
     }
     return result;
