@@ -83,6 +83,11 @@ export const getPlaylistFeed = async (req, res) => {
         resolution: screen.screenResolution,
         orientation: screen.orientation
       },
+      loopSettings: {
+        totalOperatingSeconds: settings.total_operating_seconds || 360,
+        slotDuration: slotDuration,
+        totalSlots: totalSlots
+      },
       playlist
     });
 
