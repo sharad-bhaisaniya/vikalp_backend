@@ -104,20 +104,6 @@ class AdvertisementService {
       throw new Error("Invalid price per second");
     }
 
-    if (totalOperatingSeconds) {
-      const today = this.getTodayDateString();
-      const ads = await Advertisement.find({ status: "active", scheduled_dates: today });
-      let totalBookedSecondsToday = 0;
-      for (const ad of ads) {
-        totalBookedSecondsToday += ad.seconds_per_day;
-      }
-
-      if (totalOperatingSeconds < totalBookedSecondsToday) {
-        await Advertisement.deleteMany({});
-        console.log("Cleared old advertisements to accommodate new smaller loop size.");
-      }
-    }
-
     const settings = await this.getGlobalSettings();
     if (duration) settings.current_slot_duration_seconds = duration;
     if (totalOperatingSeconds) settings.total_operating_seconds = totalOperatingSeconds;
