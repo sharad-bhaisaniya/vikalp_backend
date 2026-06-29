@@ -440,6 +440,8 @@ class AdvertisementService {
     const settings = await this.getGlobalSettings();
     const slotDuration = settings.current_slot_duration_seconds;
     const totalSlotsPerDay = Math.floor(settings.total_operating_seconds / slotDuration);
+    const pricePerSecondNum = settings.price_per_second ? parseFloat(settings.price_per_second.toString()) : 0;
+    const today = this.getTodayDateString();
 
     const query = { status: 'active' };
     if (filters.customer_id) query.user_id = filters.customer_id;
@@ -451,6 +453,16 @@ class AdvertisementService {
 
     return ads.map(ad => {
       const runner = ad.runner_id;
+      const playedSecondsToday = ad.daily_consumption?.get(today) || 0;
+      
+      // Calculate total played seconds across all days
+      let totalPlayedSecondsAllTime = 0;
+      if (ad.daily_consumption) {
+        for (const [date, seconds] of ad.daily_consumption.entries()) {
+          totalPlayedSecondsAllTime += seconds;
+        }
+      }
+
       return {
         id: ad._id,
         customer_name: ad.customer_name,
@@ -463,6 +475,12 @@ class AdvertisementService {
         total_slots_per_day: totalSlotsPerDay,
         status: ad.status,
         createdAt: ad.createdAt,
+        // Added details for tracking
+        played_seconds_today: playedSecondsToday,
+        total_played_seconds: totalPlayedSecondsAllTime,
+        total_seconds_purchased: ad.total_seconds_purchased,
+        total_cost: ad.total_cost,
+        price_per_second: pricePerSecondNum
       };
     });
   }
