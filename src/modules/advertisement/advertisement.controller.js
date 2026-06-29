@@ -14,6 +14,20 @@ class AdvertisementController {
     }
   }
 
+  async logPlay(req, res) {
+    try {
+      const { advertisement_id, played_seconds } = req.body;
+      if (!advertisement_id || !played_seconds) {
+        return res.status(400).json({ message: "advertisement_id and played_seconds are required" });
+      }
+      const result = await advertisementService.logAdPlay(advertisement_id, played_seconds);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("Error in logPlay:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  }
+
   async getGlobalSettings(req, res) {
     try {
       const settings = await advertisementService.getGlobalSettings();

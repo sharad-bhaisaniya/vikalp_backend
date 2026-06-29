@@ -3,6 +3,7 @@ import GlobalSettings from "./globalSettings.model.js";
 import mongoose from "mongoose";
 import { walletService } from "../wallet/wallet.service.js";
 import Screen from "../screen/screen.model.js";
+import AdLog from "./adLog.model.js";
 
 class AdvertisementService {
   async getGlobalSettings() {
@@ -215,13 +216,8 @@ class AdvertisementService {
       const remainingForToday = nextAd.seconds_per_day - playedToday;
       const timeToDeduct = Math.min(remainingForToday, currentSlotDuration);
 
-      if (!nextAd.daily_consumption) {
-        nextAd.daily_consumption = new Map();
-      }
-
-      nextAd.daily_consumption.set(today, playedToday + timeToDeduct);
+      // Only update last_played_at to rotate to the next ad in subsequent requests
       nextAd.last_played_at = new Date();
-
       await nextAd.save({ session });
 
       await session.commitTransaction();
@@ -229,8 +225,55 @@ class AdvertisementService {
 
       return {
         ad: nextAd,
-        played_for_seconds: timeToDeduct,
+        played_for_seconds: timeToDeduct, // Recommended time to play
       };
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      throw error;
+    }
+  }
+
+  async logAdPlay(advertisementId, playedSeconds) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const ad = await Advertisement.findById(advertisementId).session(session);
+      if (!ad) {
+        throw new Error("Advertisement not found");
+      }
+
+      const settings = await this.getGlobalSettings();
+      const today = this.getTodayDateString();
+
+      // Update daily consumption
+      if (!ad.daily_consumption) {
+        ad.daily_consumption = new Map();
+      }
+      const currentPlayed = ad.daily_consumption.get(today) || 0;
+      ad.daily_consumption.set(today, currentPlayed + playedSeconds);
+      
+      await ad.save({ session });
+
+      // Create log for the playback
+      const pricePerSecondNum = settings.price_per_second ? parseFloat(settings.price_per_second.toString()) : 0;
+      const totalCostForPlay = playedSeconds * pricePerSecondNum;
+
+      await AdLog.create([{
+        advertisement_id: ad._id,
+        user_id: ad.user_id,
+        runner_id: ad.runner_id,
+        date: today,
+        played_seconds: playedSeconds,
+        price_per_second: mongoose.Types.Decimal128.fromString(pricePerSecondNum.toString()),
+        total_cost: mongoose.Types.Decimal128.fromString(totalCostForPlay.toString())
+      }], { session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return { success: true, message: "Ad play logged successfully" };
     } catch (error) {
       await session.abortTransaction();
       session.endSession();

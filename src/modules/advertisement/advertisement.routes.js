@@ -6,6 +6,7 @@ const router = Router();
 
 // Endpoint for screen media player
 router.get("/next", advertisementController.getNextAd);
+router.post("/log-play", advertisementController.logPlay);
 
 // Admin endpoints
 router.get("/global-settings", advertisementController.getGlobalSettings);

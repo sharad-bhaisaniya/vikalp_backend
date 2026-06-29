@@ -22,25 +22,29 @@ export const getPlaylistFeed = async (req, res) => {
     // Assuming Advertisement model represents the Campaigns and can target specific screens.
     // We add a virtual or implicit match (e.g. status: 'active', remaining duration > 0)
     
+    const today = new Date().toISOString().split("T")[0];
+
     const activeCampaigns = await Advertisement.find({
       status: "active",
-      // If we had a targetScreens array: targetScreens: screenId,
-      // and checking if they have purchased time left:
+      scheduled_dates: today,
       total_seconds_purchased: { $gt: 0 }
     })
-    .select("ad_title media_url total_seconds_purchased scheduled_dates")
-    .sort({ last_played_at: 1 }) // Play least recently played first
+    .select("ad_title media_url total_seconds_purchased scheduled_dates daily_consumption seconds_per_day last_played_at")
+    .sort({ last_played_at: 1 })
     .lean();
 
-    // Mapping into a continuous array format expected by screens
-    const playlist = activeCampaigns.map(ad => ({
-      campaignId: ad._id,
-      adTitle: ad.ad_title,
-      mediaUrl: ad.media_url,
-      // Additional config
-      layout: "fullscreen",
-      maxDuration: ad.total_seconds_purchased > 10 ? 10 : ad.total_seconds_purchased 
-    }));
+    const playlist = activeCampaigns
+      .filter(ad => {
+        const currentPlayed = ad.daily_consumption?.[today] || 0;
+        return currentPlayed < ad.seconds_per_day;
+      })
+      .map(ad => ({
+        campaignId: ad._id,
+        adTitle: ad.ad_title,
+        mediaUrl: ad.media_url,
+        layout: "fullscreen",
+        maxDuration: ad.total_seconds_purchased > 10 ? 10 : ad.total_seconds_purchased 
+      }));
 
     return res.status(200).json({
       success: true,
