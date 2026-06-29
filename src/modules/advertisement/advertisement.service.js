@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { walletService } from "../wallet/wallet.service.js";
 import Screen from "../screen/screen.model.js";
 import AdLog from "./adLog.model.js";
+import AdSlot from "./adSlot.model.js";
 
 class AdvertisementService {
   async getGlobalSettings() {
@@ -127,7 +128,102 @@ class AdvertisementService {
     }
 
     await settings.save();
+    
+    // Call updateFutureSlots for all screens if timing settings changed
+    if (totalOperatingSeconds || duration) {
+      try {
+        const screens = await Screen.find({ isActive: true });
+        const now = new Date();
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        for (const screen of screens) {
+          await this.updateFutureSlots(now, endOfDay, settings.current_slot_duration_seconds * 1000, screen._id);
+        }
+      } catch (err) {
+        console.error("Error regenerating slots after global settings update:", err);
+      }
+    }
+
     return settings;
+  }
+
+  /**
+   * Regenerates future available slots based on new settings using Absolute Time Mapping.
+   * Keeps booked/past slots safe, deletes future 'available' slots, and generates new ones.
+   */
+  async updateFutureSlots(pivotTime, endOfDay, newSlotDurationMs, screenId) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // 1. Delete all future AVAILABLE slots after the pivot time
+      await AdSlot.deleteMany({
+        screen_id: screenId,
+        status: "available",
+        start_time: { $gte: pivotTime }
+      }).session(session);
+
+      // 2. Fetch all FUTURE BOOKED slots to know which time periods to skip
+      const futureBookedSlots = await AdSlot.find({
+        screen_id: screenId,
+        status: "booked",
+        start_time: { $gte: pivotTime }
+      }).sort({ start_time: 1 }).session(session);
+
+      // 3. Regenerate empty slots
+      let currentMarker = new Date(pivotTime.getTime());
+      let bookedIndex = 0;
+      const newSlotsToInsert = [];
+
+      while (currentMarker < endOfDay) {
+        const nextBooked = futureBookedSlots[bookedIndex];
+        
+        // If marker is inside a booked slot, jump to the end of it
+        if (nextBooked && currentMarker >= nextBooked.start_time && currentMarker < nextBooked.end_time) {
+          currentMarker = new Date(nextBooked.end_time.getTime());
+          bookedIndex++;
+          continue; 
+        }
+
+        const nextSlotEnd = new Date(currentMarker.getTime() + newSlotDurationMs);
+
+        // If this new slot overlaps with the next booked slot, jump over to the end of that booked slot
+        if (nextBooked && nextSlotEnd > nextBooked.start_time) {
+          currentMarker = new Date(nextBooked.end_time.getTime());
+          bookedIndex++;
+          continue;
+        }
+
+        if (nextSlotEnd > endOfDay) {
+          break; 
+        }
+
+        newSlotsToInsert.push({
+          screen_id: screenId,
+          status: "available",
+          advertisement_id: null,
+          start_time: new Date(currentMarker.getTime()),
+          end_time: nextSlotEnd,
+          slot_duration_seconds: newSlotDurationMs / 1000,
+          date: currentMarker.toISOString().split("T")[0],
+        });
+
+        currentMarker = nextSlotEnd;
+      }
+
+      if (newSlotsToInsert.length > 0) {
+        await AdSlot.insertMany(newSlotsToInsert, { session });
+      }
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      console.error("Error updating slots for screen:", screenId, error);
+      throw error;
+    } finally {
+      session.endSession();
+    }
   }
 
   async getDashboardStats() {
