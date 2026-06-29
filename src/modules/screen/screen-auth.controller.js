@@ -1,5 +1,6 @@
 import Screen from "./screen.model.js";
 import Advertisement from "../advertisement/advertisement.model.js";
+import GlobalSettings from "../advertisement/globalSettings.model.js";
 
 /**
  * Validates the hardware screen and provides the next continuous array of active ads.
@@ -33,7 +34,15 @@ export const getPlaylistFeed = async (req, res) => {
     .sort({ last_played_at: 1 })
     .lean();
 
-    const playlist = activeCampaigns
+    let settings = await GlobalSettings.findOne();
+    if (!settings) {
+      settings = { total_operating_seconds: 360, current_slot_duration_seconds: 12 };
+    }
+    
+    const slotDuration = settings.current_slot_duration_seconds || 12;
+    const totalSlots = Math.floor((settings.total_operating_seconds || 360) / slotDuration);
+
+    const activeBookedAds = activeCampaigns
       .filter(ad => {
         const currentPlayed = ad.daily_consumption?.[today] || 0;
         return currentPlayed < ad.seconds_per_day;
@@ -43,8 +52,29 @@ export const getPlaylistFeed = async (req, res) => {
         adTitle: ad.ad_title,
         mediaUrl: ad.media_url,
         layout: "fullscreen",
-        maxDuration: ad.total_seconds_purchased > 10 ? 10 : ad.total_seconds_purchased 
+        maxDuration: slotDuration
       }));
+
+    // Construct full loop playlist
+    const playlist = [];
+    
+    // Distribute booked ads
+    activeBookedAds.forEach(ad => {
+      playlist.push(ad);
+    });
+
+    // Pad remaining slots with default ad
+    const defaultAd = {
+      campaignId: null, // null so frontend doesn't log it
+      adTitle: "Vikalp Promotional Ad",
+      mediaUrl: "https://www.w3schools.com/html/mov_bbb.mp4", // Dummy default video or use an actual one
+      layout: "fullscreen",
+      maxDuration: slotDuration
+    };
+
+    while (playlist.length < totalSlots) {
+      playlist.push(defaultAd);
+    }
 
     return res.status(200).json({
       success: true,
