@@ -78,9 +78,9 @@ export const registerUser = async (reqBody, requestingUser) => {
     throw error;
   }
 
-  // city-admin: Force cityId to their own city
+  // Inherit cityId from requesting user if they are not super-admin
   const assignedCityId =
-    requestingUser.role === "city-admin" ? requestingUser.cityId : cityId;
+    requestingUser.role !== "super-admin" ? requestingUser.cityId : cityId;
 
   // city-admin and non-super-admin roles require a cityId
   if (role !== "super-admin" && !assignedCityId) {

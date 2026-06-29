@@ -11,10 +11,6 @@ const roleSchema = new mongoose.Schema(
       type: String,
       required: [true, "Role name is required"],
       unique: true,
-      enum: {
-        values: ROLE_NAMES,
-        message: `Role must be one of: ${ROLE_NAMES.join(", ")}`,
-      },
       index: true,
     },
 

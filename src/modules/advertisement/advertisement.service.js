@@ -449,10 +449,37 @@ class AdvertisementService {
 
     const ads = await Advertisement.find(query)
       .populate('runner_id', 'name mobile email role')
+      .populate({
+        path: 'user_id',
+        select: 'name role registeredBy',
+        populate: {
+          path: 'registeredBy',
+          select: 'name role registeredBy',
+          populate: {
+            path: 'registeredBy',
+            select: 'name role'
+          }
+        }
+      })
       .sort({ createdAt: -1 });
 
     return ads.map(ad => {
       const runner = ad.runner_id;
+      const customerUser = ad.user_id;
+      let adGetter = null;
+      let cityAdmin = null;
+      
+      if (customerUser && customerUser.registeredBy) {
+        if (customerUser.registeredBy.role === 'ad-getter') {
+          adGetter = customerUser.registeredBy;
+          if (adGetter.registeredBy && adGetter.registeredBy.role === 'city-admin') {
+            cityAdmin = adGetter.registeredBy;
+          }
+        } else if (customerUser.registeredBy.role === 'city-admin') {
+          cityAdmin = customerUser.registeredBy;
+        }
+      }
+
       const playedSecondsToday = ad.daily_consumption?.get(today) || 0;
       
       // Calculate total played seconds across all days
@@ -469,6 +496,8 @@ class AdvertisementService {
         ad_title: ad.ad_title,
         media_url: ad.media_url,
         runner: runner ? { id: runner._id, name: runner.name, mobile: runner.mobile, email: runner.email } : null,
+        ad_getter: adGetter ? { id: adGetter._id, name: adGetter.name } : null,
+        city_admin: cityAdmin ? { id: cityAdmin._id, name: cityAdmin.name } : null,
         scheduled_dates: ad.scheduled_dates,
         slots_per_day: ad.slots_per_day || 1,
         slot_duration_seconds: slotDuration,

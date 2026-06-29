@@ -98,3 +98,56 @@ export const syncRoles = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @route   POST /api/roles
+ * @desc    Create a new custom role
+ * @access  Private [super-admin only]
+ */
+export const createRole = async (req, res, next) => {
+  try {
+    const role = await roleService.createRole(req.body);
+    res.status(201).json({
+      success: true,
+      message: "Role created successfully.",
+      data: role,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   DELETE /api/roles/:id
+ * @desc    Delete a custom role
+ * @access  Private [super-admin only]
+ */
+export const deleteRole = async (req, res, next) => {
+  try {
+    await roleService.deleteRole(req.params.id);
+    res.status(200).json({
+      success: true,
+      message: "Role deleted successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   PUT /api/roles/:id
+ * @desc    Update a custom role's details and permissions
+ * @access  Private [super-admin only]
+ */
+export const updateRole = async (req, res, next) => {
+  try {
+    const role = await roleService.updateRole(req.params.id, req.body);
+    res.status(200).json({
+      success: true,
+      message: "Role updated successfully.",
+      data: role,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

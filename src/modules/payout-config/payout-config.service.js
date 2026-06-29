@@ -68,10 +68,17 @@ class PayoutConfigService {
       adminPercentage += runnerPercentage;
       runnerPercentage = 0;
     }
+    
+    // Cascading roll-up for Ad Getter -> City Admin -> Admin
     if (!involvedRoles.hasAdGetter) {
-      adminPercentage += adGetterPercentage;
+      if (involvedRoles.hasCityAdmin) {
+        cityAdminPercentage += adGetterPercentage;
+      } else {
+        adminPercentage += adGetterPercentage;
+      }
       adGetterPercentage = 0;
     }
+    
     if (!involvedRoles.hasCityAdmin) {
       adminPercentage += cityAdminPercentage;
       cityAdminPercentage = 0;
@@ -95,7 +102,11 @@ class PayoutConfigService {
         runnerFixed = 0;
       }
       if (!involvedRoles.hasAdGetter) {
-        adminFixed += adGetterFixed;
+        if (involvedRoles.hasCityAdmin) {
+          cityAdminFixed += adGetterFixed;
+        } else {
+          adminFixed += adGetterFixed;
+        }
         adGetterFixed = 0;
       }
       if (!involvedRoles.hasCityAdmin) {

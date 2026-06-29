@@ -48,10 +48,6 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: {
-        values: ROLES,
-        message: `Role must be one of: ${ROLES.join(", ")}`,
-      },
       default: "customer",
     },
     /**

@@ -5,6 +5,9 @@ import {
   getAvailablePermissions,
   updateRolePermissions,
   syncRoles,
+  createRole,
+  deleteRole,
+  updateRole,
 } from "./role.controller.js";
 import { protect, hasPermission } from "../../middlewares/authMiddleware.js";
 
@@ -33,24 +36,21 @@ router.post(
 
 /**
  * GET  /api/roles      → List all roles with permissions
+ * POST /api/roles      → Create a new role
  */
-router.get(
-  "/",
-  protect,
-  hasPermission("role:read"),
-  getRoles
-);
+router.route("/")
+  .get(protect, hasPermission("role:read"), getRoles)
+  .post(protect, hasPermission("role:create"), createRole);
 
 /**
  * GET    /api/roles/:id              → Get role by ID
- * PATCH  /api/roles/:id/permissions  → Update role permissions (super-admin)
+ * PUT    /api/roles/:id              → Update a role
+ * DELETE /api/roles/:id              → Delete a role
  */
-router.get(
-  "/:id",
-  protect,
-  hasPermission("role:read"),
-  getRoleById
-);
+router.route("/:id")
+  .get(protect, hasPermission("role:read"), getRoleById)
+  .put(protect, hasPermission("role:update"), updateRole)
+  .delete(protect, hasPermission("role:delete"), deleteRole);
 
 router.patch(
   "/:id/permissions",

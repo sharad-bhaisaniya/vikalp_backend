@@ -109,3 +109,101 @@ export const syncRolePermissions = async () => {
 
   return results;
 };
+
+/**
+ * createRole
+ * Creates a new custom role.
+ */
+export const createRole = async (roleData) => {
+  // Validate permissions
+  if (roleData.permissions) {
+    const invalid = roleData.permissions.filter(
+      (p) => p !== "*" && !ALL_PERMISSION_NAMES.includes(p)
+    );
+
+    if (invalid.length > 0) {
+      const error = new Error(
+        `Invalid permission(s): ${invalid.join(", ")}. Available: ${ALL_PERMISSION_NAMES.join(", ")}`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  const role = new Role({
+    name: roleData.name,
+    displayName: roleData.displayName,
+    description: roleData.description,
+    permissions: roleData.permissions || [],
+    isSystem: false, // Manual roles are never system roles
+  });
+
+  await role.save();
+  return role;
+};
+
+/**
+ * deleteRole
+ * Deletes a custom role. Cannot delete system roles.
+ */
+export const deleteRole = async (roleId) => {
+  const role = await Role.findById(roleId);
+  if (!role) {
+    const error = new Error("Role not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (role.isSystem) {
+    const error = new Error("System roles cannot be deleted.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  await Role.findByIdAndDelete(roleId);
+  return true;
+};
+
+/**
+ * updateRole
+ * Updates a custom role's details and permissions.
+ */
+export const updateRole = async (roleId, roleData) => {
+  const role = await Role.findById(roleId);
+  if (!role) {
+    const error = new Error("Role not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (role.isSystem) {
+    const error = new Error("System roles cannot have their name or details updated. Only permissions.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Validate permissions
+  if (roleData.permissions) {
+    const invalid = roleData.permissions.filter(
+      (p) => p !== "*" && !ALL_PERMISSION_NAMES.includes(p)
+    );
+
+    if (invalid.length > 0) {
+      const error = new Error(
+        `Invalid permission(s): ${invalid.join(", ")}. Available: ${ALL_PERMISSION_NAMES.join(", ")}`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  role.name = roleData.name || role.name;
+  role.displayName = roleData.displayName || role.displayName;
+  role.description = roleData.description !== undefined ? roleData.description : role.description;
+  if (roleData.permissions) {
+    role.permissions = roleData.permissions;
+  }
+
+  await role.save();
+  return role;
+};
